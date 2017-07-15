@@ -16,6 +16,7 @@ mongoose.connect('mongodb://localhost/bonae');
 
 var user = require('./routes/user');
 var auth = require('./routes/auth');
+var room = require('./routes/room');
 //var users = require('./routes/users')(User, Room, Debit, Notification);
 
 var app = express();
@@ -36,6 +37,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 //app.use('/users', users);
 app.use('/user', user);
 app.use('/auth', auth);
+app.use('/room', room);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

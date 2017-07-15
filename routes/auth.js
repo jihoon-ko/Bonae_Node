@@ -6,7 +6,8 @@ var User = require('../models/user');
 var request = require('request');
 
 var secret_key = require('../keys/jwt_secret');
-var jwt = require('jsonwebtoken')
+var secret_fb = require('../keys/fb_secret');
+var jwt = require('jsonwebtoken');
 
 function create_new_user(new_user, id, name){
 	new_user.facebook_id = id;
@@ -26,20 +27,31 @@ function create_new_user(new_user, id, name){
 
 router.post('/login/', function(req, res){
 	var fb_token = "121";
-	request('https://graph.facebook.com/v2.9/oauth/access_token?client_id=278453325891792&client_secret=c81fea2ba1ef6debb7f690d5ff3134eb&grant_type=client_credentials', function(err, result, body){
-		if(err) return res.status(500).send({error: err});
+	request('https://graph.facebook.com/v2.9/oauth/access_token?client_id=278453325891792&client_secret=' + secret_fb + '&grant_type=client_credentials', function(err, result, body){
+		if(err){
+			console.log("Facebook Request Error");
+			return res.status(500).send({error: err});
+		}
 		fb_token = JSON.parse(body).access_token;
 		//console.log(fb_token);
 		var token_split = fb_token.split('|')
+		console.log(token_split[0])
+		console.log(req.body.appid)
 		if(token_split[0] === req.body.appid){
 			request('https://graph.facebook.com/v2.9/'+req.body.id+'/?fields=id,name&locale=ko_KR&access_token=' + token_split[0] + '|' + token_split[1], function(err, result, body){
-				if(err) return res.status(500).send({error: err});
+				if(err){
+					console.log("Facebook Authentication Error");
+					return res.status(500).send({error: err});
+				}
 				var body_json = JSON.parse(body)
 				//console.log(body_json);
 				if(req.body.name == body_json.name){
 					console.log("Login Success");
 					User.findOne({facebook_id: req.body.id}, function(err, user){
-						if(err) res.status(500).send({error: err});
+						if(err){
+							console.log(err)
+							res.status(500).send({error: err});
+						}
 						if(!user){
 							console.log("create new user");
 							var promiseUser = new Promise(function(resolve, reject){
@@ -58,12 +70,15 @@ router.post('/login/', function(req, res){
 							});
 							promiseUser
 							.catch(function(){
+								console.log("error while get user")
 								return res.status(500).send({error: "error while get user"});
 							})
 							.then(function(){
 								jwt.sign(user._id, secret_key, {expiresIn: '15d'}, function(err, token){
-									if(err) return res.status(500).send({error: "token creation failed"});
-									else{
+									if(err){
+										console.log("token creation failed")
+										return res.status(500).send({error: "token creation failed"});
+									}else{
 										//console.log(token);
 										user.userToken = token;
 										user.save(function(err){
@@ -75,24 +90,30 @@ router.post('/login/', function(req, res){
 						}else{
 							if(user.userToken === ""){
 								jwt.sign(user._id, secret_key, {expiresIn: '15d'}, function(err, token){
-									if(err) return res.status(500).send({error: "token creation failed"});
-									else{
+									if(err){
+										console.log("token creation failed")
+										return res.status(500).send({error: "token creation failed"});
+									}else{
 										user.userToken = token;
 										user.save(function(err){
-											return res.json({token: token, first_login: false});
+											if(user.accountNumber === "") return res.json({token: token, first_login: true});
+											else return res.json({token: token, first_login: false});
 										});
 									}
 								});
 							}else{
-								return res.json({token: user.userToken, first_login: false});
+								if(user.accountNumber === "") return res.json({token: user.userToken, first_login: true});
+								else return res.json({token: user.userToken, first_login: false});
 							}
 						}
 					});
 				}else{
+					console.log("name error");
 					return res.status(500).send({error: "name doesn't match"});
 				}
 			});
 		}else{
+			console.log("appid error");
 			return res.status(500).send({error: "app_id doesn't match"});
 		}
 	});

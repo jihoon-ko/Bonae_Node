@@ -2,6 +2,7 @@ var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var roomSchema = new Schema({
     user_host: String,
+    room_keyword: String,
     debit_guests: [Schema.Types.ObjectId],
     createdDate: {type: Date, default: Date.now},
     contentText: String,

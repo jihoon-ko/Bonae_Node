@@ -36,12 +36,29 @@ function task_with_token(req, res, task_func){
 	});
 }
 
+function user_json(user){
+	return {
+		name: user.name,
+		facebook_id: user.facebook_id,
+		created_date: user.created_date,
+		account_bank: user.accountBank,
+		account_number: user.accountNumber,
+		notification_notis: user.notification_notis,
+		user_friend: user.user_friends,
+		user_recent_people: user.user_recentPeople,
+		room_pending_host: user.room_pendingHost,
+		room_pending_guest: user.room_pendingGuest,
+		room_ended_host: user.room_endedHost,
+		room_ended_guest: user.room_endedGuest
+	}
+}
+
 router.get('/all/', function(req, res) {
 	return task_with_token(req, res,
 		function(){
 			User.find(function(err, users){
 				if(err) return res.status(500).send({error: err});
-				else return res.json(users);
+				else return res.json(users.map(user_json));
 			});
 		});
 });
@@ -53,10 +70,11 @@ router.get('/delete/', function(req, res) {
 router.get('/:fbId/', function(req, res){
 	return task_with_token(req, res,
 		function(){
+			console.log(req.params.fbId)
 			User.findOne({facebook_id: req.params.fbId}, function(err, user){
 				if(err) return res.status(500).send({error: err});
 				if(!user) return res.status(404).send({error: "cannot find user"});
-				else return res.json(user);
+				else return res.json(user_json(user));
 			});
 		});	
 });
@@ -113,4 +131,43 @@ router.post('/changeInfo/:fbId', function(req, res){
 			}
 		});
 });
+
+router.get('/check/', function(req, res){
+	return task_with_token(req, res,
+		function(){
+			var fb_id = req.headers['x-access-id'];
+			var username = req.params.name;
+			if(!username) return res.status(500).send({error: "username doesn't exist"});
+			User.findOne({facebook_id: fb_id}, function(err, user){
+				if(err) return res.status(500).send({error: err});
+				if(!user) return res.status(404).send({error: "cannot find user"});
+				else{
+					if(username === user.name){
+						return res.json({ok : "1"});
+					}else{
+						User.findOne({name: username}, function(err, user2){
+							if(err) return res.status(500).send({error: err});
+							if(user2) return res.json({ok: "0"});
+							else return res.json({ok: "1"})
+						});
+					}
+				}
+			});
+		});
+});
+
+router.get('/search/', function(req, res) {
+	return task_with_token(req, res,
+		function(){
+			var username = req.params.name;
+			if(!username) return res.json([]);
+			else{
+				User.find({}, function(err, users){
+					if(err) return res.status(500).send({error: err});
+					else return res.json(users.map(user_json));
+				});
+			}
+		});
+});
+
 module.exports = router;

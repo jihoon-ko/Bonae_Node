@@ -4,6 +4,8 @@ var debitSchema = new Schema({
     //isRegistered: Boolean,
     //user_user: String,
     //username: String,
+    user: String,
+    room: Schema.Types.ObjectId,
     price: Number,
     paid: Number,
     paidStatus: Number,

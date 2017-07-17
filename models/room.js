@@ -3,6 +3,7 @@ var Schema = mongoose.Schema;
 var roomSchema = new Schema({
     user_host: String,
     room_keyword: String,
+    debit_left: Number,
     debit_guests: [{id: Schema.Types.ObjectId, user: String}],
     createdDate: {type: Date, default: Date.now},
     contentText: String,

@@ -39,7 +39,7 @@ function task_with_token(req, res, task_func){
 
 function transform_date(dateStr){
 	let kd = new Date(new Date(dateStr).getTime() + 540 * 60000);
-	let retStr = kd.getUTCFullYear() + '-' + ("0" + (kd.getUTCMonth())).slice(-2) + '-' + ("0" + (kd.getUTCDate())).slice(-2) + " ";
+	let retStr = kd.getUTCFullYear() + '-' + ("0" + (kd.getUTCMonth()+1)).slice(-2) + '-' + ("0" + (kd.getUTCDate())).slice(-2) + " ";
 	retStr = retStr + ("0" + (kd.getUTCHours())).slice(-2) + ":" + ("0" + (kd.getUTCMinutes())).slice(-2) + ":" + ("0" + (kd.getUTCSeconds())).slice(-2);
 	return retStr;
 }
@@ -50,6 +50,7 @@ function user_json(user, res){
 	guest_money = [];
 	guest_keyword = [];
 	guest_date = [];
+	guest_number = [];
 	pending_host = user.room_pendingHost;
 	pending_guest = user.room_pendingGuest;
 	checking_guest_money = [];
@@ -66,6 +67,7 @@ function user_json(user, res){
 					return_pending_host.push({
 						"room": user.room_pendingHost[i],
 						"keyword": host_keyword[i],
+						"guest_number": guest_number[i],
 						"left": host_money[i],
 						"created_date": transform_date(host_date[i])
 					});
@@ -131,6 +133,7 @@ function user_json(user, res){
 								if(i == debit_list.length){
 									host_money.push(suum);
 									host_date.push(room.createdDate);
+									guest_number.push({"left": room.debit_left, "total": room.debit_guests.length});
 									host_keyword.push(room.room_keyword);
 									return get_host_money(idx+1);
 								}else{
@@ -166,17 +169,28 @@ function save_username(res, user, username){
 		else return res.json({ok: "1"});
 	})
 }
-/*
+
+function user_json_simple(user){
+	console.log(user);
+	return {
+		name: user.name,
+		//token: user.userToken,
+		facebook_id: user.facebook_id,
+		account_bank: user.accountBank,
+		account_number: user.accountNumber
+	}
+}
+
 router.get('/all/', function(req, res) {
 	return task_with_token(req, res,
 		function(){
 			User.find(function(err, users){
 				if(err) return res.status(500).send({error: err});
-				else return res.json(users.map(user_json));
+				else return res.json(users.map(user_json_simple));
 			});
 		});
 });
-*/
+
 router.get('/delete/', function(req, res) {
 	var username = req.query.name;
 	User.find({name: username}).remove().exec(function(err, data) { return res.json({ok: 1})});
@@ -263,15 +277,6 @@ router.get('/check/', function(req, res){
 			
 		});
 });
-
-function user_json_simple(user){
-	return {
-		name: user.name,
-		facebook_id: user.facebook_id,
-		account_bank: user.accountBank,
-		account_number: user.accountNumber
-	}
-}
 
 router.get('/search/', function(req, res) {
 	return task_with_token(req, res,

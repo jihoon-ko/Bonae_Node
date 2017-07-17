@@ -50,8 +50,6 @@ function user_json_simple(user){
 function debit_json(debit){
 	if(debit.is_registered){
 		return {
-			is_registered: debit.isRegistered,
-			user_info: user_json_simple(debit.user_user),
 			price: debit.price,
 			paid: debit.paid,
 			paid_pending_status: debit.paidStatus,
@@ -59,8 +57,6 @@ function debit_json(debit){
 		}
 	}else{
 		return {
-			is_registered: debit.isRegistered,
-			user_info: debit.username,
 			price: debit.price,
 			paid: debit.paid,
 			paid_pending_status: debit.paidStatus,
@@ -94,7 +90,7 @@ function room_json(room){
 			return {
 				id: room._id,
 				user_host: user_json_simple(user),
-				debit_guests: (room.debit_guests).map(debit_json),
+				//debit_guests: (room.debit_guests).map(debit_json),
 				created_date: room.createdDate,
 				context_text: room.contextText,
 				context_image: room.contextImage
@@ -155,11 +151,9 @@ router.post('/create/', function(req, res){
 								User.findOne({facebook_id: guests[i]}, function(err, user){
 									if(err) return res.status(500).send({error: err});
 									if(!user) return res.status(500).send({error: "cannot find user"});
-									user.room_pendingGuest.push(room._id);
+									user.room_pendingGuest.push({room: room._id, debit: debit});
 									user.save(function(err){
 										if(err) return res.status(500).send({error: err});
-										debit.isRegistered = true;
-										debit.user_user = guests[i];
 										debit.price = price_list[i];
 										debit.paid = 0;
 										debit.paidStatus = 0;
@@ -167,15 +161,13 @@ router.post('/create/', function(req, res){
 										debit.save(function(err){
 											if(err) return res.status(500).send({error: err});
 											else{
-												debit_list.push(debit._id);
+												debit_list.push({id: debit._id, user: guests[i]});
 												return add_rec(i+1, len, finish_task);
 											}
 										});
 									})
 								});
 							}else{
-								debit.isRegistered = false;
-								debit.username = guests[i].substring(1);
 								debit.price = price_list[i];
 								debit.paid = 0;
 								debit.paidStatus = 0;
@@ -183,7 +175,7 @@ router.post('/create/', function(req, res){
 								debit.save(function(err){
 									if(err) return res.status(500).send({error: err});
 									else{
-										debit_list.push(debit._id);
+										debit_list.push({id: debit._id, user: guests[i]});
 										return add_rec(i+1, len, finish_task);
 									}
 								});
@@ -196,7 +188,7 @@ router.post('/create/', function(req, res){
 		});
 });
 
-router.get('/:id/', function(req, res){
+router.get('/id/:id/', function(req, res){
 	return task_with_token(req, res,
 		function(){
 			console.log(req.params.id)
@@ -220,6 +212,16 @@ router.get('/debit/:id/', function(req, res){
 			});
 		});	
 });
+/*
+router.get('/test/test/', function(req, res){
+	User.findOne({facebook_id: "1294851247304899"}, function(err, user){
+		if(err) return res.status(500).send({error: err});
+		if(!user) return res.status(404).send({error: "cannot find user"});
+		user.room_pendingHost.push("596c6060e8dbfd06ce6f7ff0");
+		user.save();
+	});
+});
+*/
 /*
 router.get('/:id/detail/', function(req, res){
 	return task_with_token(req, res,

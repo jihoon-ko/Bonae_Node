@@ -10,9 +10,9 @@ var userSchema = new Schema({
     accountNumber: String,
     // Foreign Schema: Room
     room_pendingHost: [Schema.Types.ObjectId],
-    room_pendingGuest: [Schema.Types.ObjectId],
+    room_pendingGuest: [{room: Schema.Types.ObjectId, debit: Schema.Types.ObjectId}],
     room_endedHost: [Schema.Types.ObjectId],
-    room_endedGuest: [Schema.Types.ObjectId],
+    room_endedGuest: [{room: Schema.Types.ObjectId, debit: Schema.Types.ObjectId}],
     
     // Foreign Schema: User
     user_friends: [String],

@@ -289,6 +289,53 @@ router.get('/search/', function(req, res) {
 		});
 });
 
+router.get('/id/:id/friends/', function(req, res){
+	return task_with_token(req, res,
+		function(){
+			var fbid = req.params.id;
+			if(fbid !== req.headers['x-access-id']) return res.status(500).send({error: "invalid id"});
+			User.findOne({facebook_id: fbid}, function(err, user){
+				if(err) return res.status(500).send({error: err});
+				if(!user) return res.status(500).send({error: "cannot find user"});
+				let return_friends = []
+				user.user_friends.sort();
+				const len = user.user_friends.length;
+				(get_friends = (i) => {
+					if(i == -1){
+						return res.json(return_friends);
+					}else{
+						User.findOne({facebook_id: user.user_friends[i]}, function(err, friend){
+							if(err) return res.status(500).send({error: err});
+							if(!friend) return res.status(500).send({error: "cannot find friends"});
+							return_friends.push(user_json_simple(friend));
+							get_friends(i-1);
+						});
+					}
+				})(len-1);
+			});
+		});
+});
 
+router.post('/id/:id/friends/add/', function(req, res){
+	return task_with_token(req, res,
+		function(){
+			var fbid = req.params.id;
+			var friend_id = req.body.friend_id;
+			if(fbid !== req.headers['x-access-id']) return res.status(500).send({error: "invalid id"});
+			User.findOne({facebook_id: fbid}, function(err, user){
+				if(err) return res.status(500).send({error: err});
+				if(!user) return res.status(500).send({error: "cannot find user"});
+				User.findOne({facebook_id: friend_id}, function(err, friend){
+					if(err) return res.status(500).send({error: err});
+					if(!friend) return res.status(500).send({error: "cannot find friend"});
+					user.user_friends.push(friend_id);
+					user.save((err) => {
+						if(err) return res.status(500).send({error: err});
+						return res.json({"ok": 1}); 
+					});
+				});
+			});
+		});
+});
 
 module.exports = router;

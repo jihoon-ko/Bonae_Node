@@ -520,7 +520,7 @@ router.get('/test/test/', function(req, res){
 	});
 	*/
 	User.findOne({facebook_id: "1431121370310011"}, function(err, user){
-		user.room_pendingHost.splice(0, 1);
+		user.user_friends = [];
 		user.save((err) => {
 			if(err) res.status(500).send({error: err});
 			return res.json({ok: "1"});

@@ -7,7 +7,10 @@ var Debit = require('../models/debit');
 var Notification = require('../models/notification');
 
 var secret_key = require('../keys/jwt_secret');
+var secret_fb = require('../keys/fb_secret');
 var jwt = require('jsonwebtoken')
+
+var request = require('request');
 
 function toHexString(byteArray) {
   return Array.from(byteArray, function(byte) {
@@ -207,6 +210,43 @@ router.get('/id/:fbId/', function(req, res){
 			});
 		});	
 });
+
+router.get('/id/:fbId/picture/', function(req, res){
+	return task_with_token(req, res, 
+		function(){
+			User.findOne({facebook_id: req.params.fbId}, function(err, user){
+				//console.log(user);
+				if(user.profileImage === "" || !user.profileImage){
+					var fb_token = "121";
+					request('https://graph.facebook.com/v2.9/oauth/access_token?client_id=278453325891792&client_secret=' + secret_fb + '&grant_type=client_credentials', function(err, result, body){
+						if(err){
+							console.log("Facebook Request Error");
+							return res.status(500).send({error: err});
+						}
+						fb_token = JSON.parse(body).access_token;
+						request('https://graph.facebook.com/v2.9/'+req.params.fbId+'/?fields=id,name,picture&locale=ko_KR&access_token=' + fb_token, {encoding: 'utf-8'}, function(err, result, body){
+							if(err){
+								console.log("Facebook Authentication Error");
+								return res.status(500).send({error: err});
+							}
+							var body_json = JSON.parse(body)
+							//console.log(body_json);
+							var pic_url = body_json.picture.data.url;
+							
+							//console.log(pic_url);
+							user.profileImage = pic_url;
+							user.save(function(err){
+								return res.json({url: pic_url});
+							});
+						});
+					});
+				}else{
+					//console.log(user.profileImage);
+					return res.json({url: user.profileImage});
+				}
+			});
+		});
+});
 /*
 router.get('/id/:myId/', function(req, res){
 	return task_with_token(req, res,
@@ -281,10 +321,28 @@ router.get('/check/', function(req, res){
 router.get('/search/', function(req, res) {
 	return task_with_token(req, res,
 		function(){
+			var fb_id = req.headers['x-access-id'];
 			var username = req.query.name;
-			User.find({name: {'$regex': username, '$options': 'i'}}, function(err, users){
-				if(err) return res.status(500).send({error: err});
-				else return res.json(users.map(user_json_simple));
+			User.findOne({facebook_id: fb_id}, function(err, user){
+				User.find({name: {'$regex': username, '$options': 'i'}}, function(err, users){
+					if(err) return res.status(500).send({error: err});
+					else{
+						return_list = []
+						for(let i=0;i<users.length;i++){
+							if(users[i].facebook_id !== fb_id){
+								var myjson = user_json_simple(users[i]);
+								return_list.push({
+									name: myjson.name,
+									facebook_id: myjson.facebook_id,
+									account_bank: myjson.account_bank,
+									account_number: myjson.account_number,
+									is_friend: (user.user_friends.indexOf(users[i].facebook_id) !== -1)
+								});
+							}
+						}
+						return res.json(return_list);
+					}
+				});
 			});
 		});
 });
@@ -301,17 +359,17 @@ router.get('/id/:id/friends/', function(req, res){
 				user.user_friends.sort();
 				const len = user.user_friends.length;
 				(get_friends = (i) => {
-					if(i == -1){
+					if(i == len){
 						return res.json(return_friends);
 					}else{
 						User.findOne({facebook_id: user.user_friends[i]}, function(err, friend){
 							if(err) return res.status(500).send({error: err});
 							if(!friend) return res.status(500).send({error: "cannot find friends"});
 							return_friends.push(user_json_simple(friend));
-							get_friends(i-1);
+							get_friends(i+1);
 						});
 					}
-				})(len-1);
+				})(0);
 			});
 		});
 });
@@ -333,6 +391,39 @@ router.post('/id/:id/friends/add/', function(req, res){
 						if(err) return res.status(500).send({error: err});
 						return res.json({"ok": 1}); 
 					});
+				});
+			});
+		});
+});
+
+router.post('/id/:id/friends/delete/', function(req, res){
+	return task_with_token(req, res,
+		function(){
+			var fbid = req.params.id;
+			var friend_id = req.body.friend_id;
+			if(fbid !== req.headers['x-access-id']) return res.status(500).send({error: "invalid id"});
+			User.findOne({facebook_id: fbid}, function(err, user){
+				if(err) return res.status(500).send({error: err});
+				if(!user) return res.status(500).send({error: "cannot find user"});
+				User.findOne({facebook_id: friend_id}, function(err, friend){
+					if(err) return res.status(500).send({error: err});
+					if(!friend) return res.status(500).send({error: "cannot find friend"});
+					var found = false;
+					for(let i=0;i<user.user_friends.length;i++){
+						if(user.user_friends[i] === friend_id){
+							user.user_friends.splice(i,1);
+							found = true;
+							break;
+						}
+					}
+					if(!found){
+						return res.status(500).send({error: "this user is not your friend!"});
+					}else{
+						user.save((err) => {
+							if(err) return res.status(500).send({error: err});
+							return res.json({"ok": 1}); 
+						});
+					}
 				});
 			});
 		});

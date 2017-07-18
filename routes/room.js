@@ -82,14 +82,22 @@ function room_json(res, room){
 			(get_debit = (idx) => {
 				let func = () => {
 					if(idx == len){
+						var content_text = room.contentText;
+						if(!room.contentText){
+							content_text = "";
+						}
+						var content_image = room.contentImage;
+						if(!room.contentImage){
+							content_image = "";
+						}
 						return res.json({
 							id: room._id,
 							user_host: user_json_simple(user),
 							debit_left: room.debit_left,
 							debit_guests: return_debit_list,
 							created_date: transform_date(room.createdDate),
-							context_text: room.contentText,
-							context_image: room.contentImage
+							content_text: content_text,
+							content_image: content_image
 						});
 					}else{
 						let debit_id = room.debit_guests[idx].id;
@@ -107,6 +115,7 @@ function room_json(res, room){
 											"name": username,
 											"facebook_id": userfb
 										},
+										"debit_id": room.debit_guests[idx].id,
 										"price": debit.price,
 										"paid": debit.paid,
 										"paidStatus": debit.paidStatus,
@@ -125,6 +134,7 @@ function room_json(res, room){
 													"name": username,
 													"facebook_id": userfb
 												},
+												"debit_id": room.debit_guests[idx].id,
 												"price": debit.price,
 												"paid": debit.paid,
 												"paidStatus": debit.paidStatus,
@@ -297,16 +307,23 @@ router.post('/id/:room_id/request/', function(req, res){
 		function(){
 			let debit_id = req.body.id;
 			let amount = req.body.amount;
+			console.log(debit_id);
+			console.log(amount);
 			if((!debit_id) || (!amount)) return res.status(500).send({error: "invalid data"});
 			Debit.findOne({_id: debit_id}, function(err, debit){
 				if(err) return res.status(500).send({error: err});
 				if(!debit) return res.status(404).send({error: "cannot find debit"});
+				console.log("part1");
 				Room.findOne({_id: req.params.room_id}, function(err, room){
 					if(err) return res.status(500).send({error: err});
 					if(!room) return res.status(404).send({error: "cannot find room"});
+					console.log("part2");
+					console.log(req.headers['x-access-id']);
+					console.log(debit_id);
 					if(!validate_guest(debit, req.params.room_id, req.headers['x-access-id'])){
 						return res.status(500).send({error: "debit_id information is invalid"});
 					}else{
+						console.log("part3");
 						if(debit.price - debit.paid < amount || amount <= 0){
 							console.log("send - err1");
 							return res.status(500).send({error: "invalid money"});
@@ -314,6 +331,7 @@ router.post('/id/:room_id/request/', function(req, res){
 							console.log("send - err2");
 							return res.status(500).send({error: "already requested"});
 						}else{
+							console.log("part4");
 							debit.paidStatus = 1;
 							debit.paidPending = amount;
 							debit.save((err) => {
@@ -491,7 +509,8 @@ router.post('/id/:room_id/accept/', function(req, res){
 
 
 router.get('/test/test/', function(req, res){
-	/*Room.find({}, function(err, rooms){
+	/*
+	Room.find({}, function(err, rooms){
 		let updFunc = (i) => {
 			let func = () => {
 				if(i == rooms.length){
@@ -519,8 +538,8 @@ router.get('/test/test/', function(req, res){
 		return updFunc(0);
 	});
 	*/
-	User.findOne({facebook_id: "1431121370310011"}, function(err, user){
-		user.user_friends = [];
+	Room.findOne({_id: "596c9c3f35bdb00d781af667"}, function(err, user){
+		console.log(user.contentText);
 		user.save((err) => {
 			if(err) res.status(500).send({error: err});
 			return res.json({ok: "1"});
